@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Generative Design</title>
+    <link rel="icon" type="image/png" href="/tool/favicon.png" />
     <style>
       *,
       *::before,
@@ -19,7 +20,6 @@
         --card-bg: #181818;
         --border: #2a2a2a;
         --hover-border: #555;
-        --selected-border: #fff;
         --sidebar-w: 280px;
       }
 
@@ -127,45 +127,6 @@
         font-variant-numeric: tabular-nums;
       }
 
-      /* ── Selected list ───────────────────────── */
-      #selected-panel {
-        padding: 20px 0 24px;
-        flex: 1;
-      }
-
-      #selected-empty {
-        padding: 4px 20px;
-        font-size: 16px;
-        color: #fff;
-        opacity: 0.4;
-      }
-
-      .selected-item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 6px 20px;
-        font-size: 16px;
-        color: #fff;
-      }
-
-      .selected-item .remove-btn {
-        background: none;
-        border: none;
-        color: #fff;
-        font-size: 16px;
-        cursor: pointer;
-        opacity: 0.5;
-        padding: 0 0 0 8px;
-        line-height: 1;
-        transition: opacity 0.1s;
-        flex-shrink: 0;
-      }
-
-      .selected-item .remove-btn:hover {
-        opacity: 1;
-      }
-
       /* ── Main ────────────────────────────────── */
       #main {
         flex: 1;
@@ -222,7 +183,7 @@
       }
 
       .sketch-card {
-        cursor: pointer;
+        cursor: zoom-in;
         border-radius: 3px;
         overflow: hidden;
         background: var(--card-bg);
@@ -239,22 +200,6 @@
         box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
       }
 
-      .sketch-card.selected {
-        border-color: var(--selected-border);
-        box-shadow: 0 0 0 1px var(--selected-border);
-      }
-
-      .sketch-card.selected:hover {
-        border-color: var(--selected-border);
-        box-shadow:
-          0 0 0 1px var(--selected-border),
-          0 6px 20px rgba(0, 0, 0, 0.5);
-      }
-
-      .sketch-thumb-wrap {
-        position: relative;
-      }
-
       .sketch-thumb {
         width: 100%;
         aspect-ratio: 1;
@@ -269,32 +214,6 @@
         justify-content: center;
         color: #fff;
         font-size: 18px;
-      }
-
-      /* checkmark badge on selected cards */
-      .selected-badge {
-        display: none;
-        position: absolute;
-        top: 6px;
-        right: 6px;
-        width: 20px;
-        height: 20px;
-        background: #fff;
-        border-radius: 50%;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .selected-badge svg {
-        width: 11px;
-        height: 11px;
-        stroke: #111;
-        stroke-width: 2.5;
-        fill: none;
-      }
-
-      .sketch-card.selected .selected-badge {
-        display: flex;
       }
 
       .sketch-label {
@@ -391,10 +310,6 @@
       #lightbox-close:hover {
         background: rgba(255, 255, 255, 0.25);
       }
-
-      .sketch-thumb-wrap {
-        cursor: zoom-in;
-      }
     </style>
   </head>
   <body>
@@ -430,15 +345,6 @@
         <div class="sidebar-label">Sections</div>
         <nav id="nav"></nav>
       </div>
-
-      <div id="selected-panel">
-        <div class="sidebar-label">
-          Selected <span id="selected-count"></span>
-        </div>
-        <div id="selected-list">
-          <div id="selected-empty">No sketches selected</div>
-        </div>
-      </div>
     </aside>
 
     <main id="main">
@@ -451,9 +357,6 @@
       const nav = document.getElementById("nav");
       const meta = document.getElementById("meta");
       const loading = document.getElementById("loading");
-      const selList = document.getElementById("selected-list");
-      const selCount = document.getElementById("selected-count");
-      const selEmpty = document.getElementById("selected-empty");
 
       const lightbox = document.getElementById("lightbox");
       const lightboxImg = document.getElementById("lightbox-img");
@@ -483,47 +386,6 @@
       document.addEventListener("keydown", (e) => {
         if (e.key === "Escape") closeLightbox();
       });
-
-      const selected = new Map(); // name → card element
-
-      function updateSelectedPanel() {
-        selCount.textContent = selected.size ? `(${selected.size})` : "";
-        selEmpty.style.display = selected.size ? "none" : "block";
-      }
-
-      function addToSelected(name, card) {
-        if (selected.has(name)) return;
-        selected.set(name, card);
-        card.classList.add("selected");
-
-        const item = document.createElement("div");
-        item.className = "selected-item";
-        item.dataset.name = name;
-        item.innerHTML = `<span>${name}</span><button class="remove-btn" title="Remove">×</button>`;
-        item
-          .querySelector(".remove-btn")
-          .addEventListener("click", () => removeFromSelected(name));
-        selList.appendChild(item);
-
-        updateSelectedPanel();
-      }
-
-      function removeFromSelected(name) {
-        const card = selected.get(name);
-        if (card) card.classList.remove("selected");
-        selected.delete(name);
-
-        const item = selList.querySelector(`[data-name="${name}"]`);
-        if (item) item.remove();
-
-        updateSelectedPanel();
-      }
-
-      function toggleSelected(name, card) {
-        selected.has(name)
-          ? removeFromSelected(name)
-          : addToSelected(name, card);
-      }
 
       // Highlight active section as user scrolls
       const observer = new IntersectionObserver(
@@ -581,29 +443,23 @@
             const card = document.createElement("div");
             card.className = "sketch-card";
 
-            const wrap = document.createElement("div");
-            wrap.className = "sketch-thumb-wrap";
+            const src = sketch.thumbnail
+              ? sketch.thumbnail.startsWith("http")
+                ? sketch.thumbnail
+                : `/${sketch.thumbnail}`
+              : null;
 
-            if (sketch.thumbnail) {
+            if (src) {
               const img = document.createElement("img");
               img.className = "sketch-thumb";
-              img.src = sketch.thumbnail.startsWith("http")
-                ? sketch.thumbnail
-                : `/${sketch.thumbnail}`;
+              img.src = src;
               img.alt = sketch.name;
               img.loading = "lazy";
               img.onerror = () => img.replaceWith(noImagePlaceholder());
-              wrap.appendChild(img);
+              card.appendChild(img);
             } else {
-              wrap.appendChild(noImagePlaceholder());
+              card.appendChild(noImagePlaceholder());
             }
-
-            const badge = document.createElement("div");
-            badge.className = "selected-badge";
-            badge.innerHTML = `<svg viewBox="0 0 12 12"><polyline points="1.5,6 5,9.5 10.5,2.5"/></svg>`;
-            wrap.appendChild(badge);
-
-            card.appendChild(wrap);
 
             const label = document.createElement("div");
             label.className = "sketch-label";
@@ -611,19 +467,11 @@
             label.title = sketch.name;
             card.appendChild(label);
 
-            wrap.addEventListener("click", (e) => {
-              e.stopPropagation();
-              const src = sketch.thumbnail
-                ? sketch.thumbnail.startsWith("http")
-                  ? sketch.thumbnail
-                  : `/${sketch.thumbnail}`
-                : null;
-              if (src) openLightbox(src, sketch.name);
-            });
-
-            card.addEventListener("click", () =>
-              toggleSelected(sketch.name, card),
-            );
+            if (src) {
+              card.addEventListener("click", () =>
+                openLightbox(src, sketch.name),
+              );
+            }
 
             grid.appendChild(card);
           });
