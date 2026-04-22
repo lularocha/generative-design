@@ -1,21 +1,42 @@
-This code package still needs to be updated to Processing 3.x and is work in progress! Most of it should work by now.
-===============================================
+# Generative Design — Personal Sketchbook
 
-Generative Design Code Package (for Processing-3.x)
-===========================
+A personal study repo working through the exercises in [Generative Design](http://www.generative-gestaltung.de) by Hartmut Bohnacker, Benedikt Groß, Julia Laub, and Claudius Lazzeroni.
 
-Hi. This GitHub repository completes the book [Generative Design](http://www.generative-gestaltung.de). It offers direct access to all [Processing](http://processing.org/) source code for the software described in the book.
+All original Processing source code lives in the official repo:
+**[generative-design/Code-Package-Processing-1.5.1](https://github.com/generative-design/Code-Package-Processing-1.5.1)**
 
-http://www.generative-gestaltung.de
+---
 
-**This code package still needs to be updated to Processing 3.x. We do our best to finish it as soon as possible.**
+## What's in this repo
 
-**Authors**
-- Hartmut Bohnacker
-- [Benedikt Groß](http://benedikt-gross.de)
-- [Julia Laub](http://www.onformative.com/)
-- [Claudius Lazzeroni](http://www.lazzeroni.de/), editor
+- **`implemented/`** — sketches I've worked through, with source (`.pde`) and output images
+- **`tool/`** — a local gallery and sketch viewer I built to browse all sketches and run the implemented ones
+- **`svg-exports/`** — SVG outputs from select sketches
 
-We hope by using GitHub to host the source code of the book, it will be easier and more swift to manage corrections. Please use the GitHub issues for bug reports, typos, suggestions, etc. You are also very welcome to fork the repo, make corrections on your own and submit a pull request. Please keep pull requests to an easy digestible size, so that the review process can be quick and uncomplicated.
+The source sketch folders (`01_P`, `02_M`, `03_A`) are not committed here — they're in the original repo above. The gallery tool loads their thumbnails directly from there.
 
-All of the book's source code is licensed under the [Apache License Version 2.0](http://www.apache.org/licenses/LICENSE-2.0)
+---
+
+## Gallery tool
+
+A lightweight local server that shows all sketches as a browsable grid with thumbnails, and lets you open the implemented ones as interactive web sketches.
+
+```bash
+python3 tool/server.py
+# → http://localhost:8080
+```
+
+---
+
+## Original repo
+
+> Hi. This GitHub repository completes the book [Generative Design](http://www.generative-gestaltung.de). It offers direct access to all [Processing](http://processing.org/) source code for the software described in the book.
+>
+> **Authors**
+>
+> - Hartmut Bohnacker
+> - [Benedikt Groß](http://benedikt-gross.de)
+> - [Julia Laub](http://www.onformative.com/)
+> - [Claudius Lazzeroni](http://www.lazzeroni.de/), editor
+>
+> All of the book's source code is licensed under the [Apache License Version 2.0](http://www.apache.org/licenses/LICENSE-2.0)
