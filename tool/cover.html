@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cover — Generative Design</title>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+    <style>
+      @font-face {
+        font-family: "FreeSansBold";
+        src: url("/implemented/Cover/data/FreeSansBold.ttf") format("truetype");
+        font-weight: bold;
+      }
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #111;
+        --sidebar-bg: #0c0c0c;
+        --border: #2a2a2a;
+        --sidebar-w: 280px;
+      }
+      html,
+      body {
+        height: 100%;
+        background: var(--bg);
+        color: #fff;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+      body {
+        display: flex;
+        overflow: hidden;
+      }
+
+      #sidebar {
+        width: var(--sidebar-w);
+        min-width: var(--sidebar-w);
+        background: var(--sidebar-bg);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        scrollbar-width: none;
+      }
+      #sidebar::-webkit-scrollbar {
+        display: none;
+      }
+      .sidebar-header {
+        padding: 28px 20px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+      .sidebar-header h1 {
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .back-link {
+        display: inline-block;
+        margin-top: 10px;
+        font-size: 16px;
+        color: #fff;
+        opacity: 0.45;
+        text-decoration: none;
+        transition: opacity 0.15s;
+      }
+      .back-link:hover {
+        opacity: 1;
+      }
+      .sidebar-section {
+        padding: 20px 0 16px;
+      }
+      .sidebar-label {
+        padding: 0 20px 12px;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+      .sketch-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 20px;
+        gap: 12px;
+      }
+      .sketch-name {
+        font-size: 16px;
+        flex: 1;
+      }
+
+      .run-btn {
+        flex-shrink: 0;
+        min-width: 68px;
+        padding: 5px 14px;
+        font-size: 16px;
+        font-family: inherit;
+        font-weight: 500;
+        cursor: pointer;
+        border-radius: 3px;
+        border: 1px solid #fff;
+        background: #fff;
+        color: #111;
+        text-align: center;
+        transition:
+          background 0.15s,
+          color 0.15s,
+          border-color 0.15s;
+      }
+      .run-btn:hover {
+        background: #ddd;
+        border-color: #ddd;
+      }
+      .run-btn.running {
+        background: transparent;
+        color: #ff5555;
+        border-color: #ff5555;
+      }
+      .run-btn.running:hover {
+        background: rgba(255, 85, 85, 0.1);
+      }
+
+      #main {
+        flex: 1;
+        overflow: auto;
+        padding: 40px 44px 60px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+      }
+      #canvas-area {
+        position: relative;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        overflow: hidden;
+        line-height: 0;
+      }
+      #placeholder {
+        display: block;
+        width: 1310px;
+        height: 822px;
+        object-fit: cover;
+        opacity: 0.65;
+      }
+      #canvas-wrap {
+        display: none;
+      }
+      #canvas-wrap.active {
+        display: block;
+      }
+      #canvas-wrap canvas {
+        display: block;
+      }
+      .hint {
+        font-size: 16px;
+        color: #fff;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+      .hint.visible {
+        opacity: 0.4;
+      }
+    </style>
+  </head>
+  <body>
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <h1>Generative Design</h1>
+        <a class="back-link" href="/tool/index.html">← Gallery</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Sketches</div>
+        <div class="sketch-row">
+          <span class="sketch-name">Cover</span>
+          <button class="run-btn" id="run-btn">Run</button>
+        </div>
+      </div>
+    </aside>
+
+    <main id="main">
+      <div id="canvas-area">
+        <img
+          id="placeholder"
+          src="/implemented/Cover/130615_130524.png"
+          alt="Cover"
+          onerror="this.style.background = '#1a1a1a'"
+        />
+        <div id="canvas-wrap"></div>
+      </div>
+      <span class="hint" id="hint"
+        >Rendering… ribbons appear progressively</span
+      >
+    </main>
+
+    <script>
+      // ── Constants (qf = 1, screen quality) ───────────────────────────────────
+      const CW = 1310,
+        CH = 822;
+      const BLOCK_X = 580,
+        BLOCK_Y = 306;
+      const BLOCK_F = 0.56;
+      const TAG_W = 207;
+      const GAP_RATIO = 0.25;
+      const STRIPS = 20;
+      const RESOLUTION = 40; // bezier control points per ribbon
+      const DETAIL = 20; // quads per segment
+      const IMG_COUNT = 219;
+      const DIST_POW = 1.27;
+      const PERSP_CX = 630,
+        PERSP_CY = 630;
+
+      // ── Single title word ────────────────────────────────────────────────────
+      const TITLE = [{ text: "SBE", x: 60, y: 230, size: 110 }];
+
+      // ── DOM ───────────────────────────────────────────────────────────────────
+      const runBtn = document.getElementById("run-btn");
+      const canvasWrap = document.getElementById("canvas-wrap");
+      const placeholder = document.getElementById("placeholder");
+      const hint = document.getElementById("hint");
+      let displayP5 = null;
+      let running = false;
+
+      function syncUI() {
+        runBtn.textContent = running ? "Stop" : "Run";
+        runBtn.className = running ? "run-btn running" : "run-btn";
+        hint.className = running ? "hint visible" : "hint";
+      }
+
+      // ── Book XML → per-page tag layout ───────────────────────────────────────
+      async function fetchTagData() {
+        const xml = new DOMParser().parseFromString(
+          await (await fetch("/implemented/Cover/data/book.xml")).text(),
+          "text/xml",
+        );
+        const sections = [...xml.querySelectorAll("sections section")];
+        const tagMap = {};
+        let tagSum = 0;
+
+        for (const sec of sections) {
+          const pc = +sec.getAttribute("pagecount");
+          for (const t of sec.querySelectorAll("tag")) {
+            const k = t.getAttribute("name").toUpperCase();
+            if (!tagMap[k])
+              tagMap[k] = { name: t.getAttribute("name"), count: 0 };
+            tagMap[k].count += pc;
+            tagSum += pc;
+          }
+        }
+
+        const sorted = Object.keys(tagMap).sort();
+        let pos = 0;
+        sorted.forEach((k, i) => {
+          tagMap[k].orderNum = i;
+          tagMap[k].ratio = tagMap[k].count / tagSum;
+          tagMap[k].position = pos;
+          pos += tagMap[k].ratio;
+        });
+
+        const pageTags = [],
+          pageTagPos = [];
+        for (const sec of sections) {
+          const pc = +sec.getAttribute("pagecount");
+          const tags = [...sec.querySelectorAll("tag")].map(
+            (t) => tagMap[t.getAttribute("name").toUpperCase()],
+          );
+          let counters = tags.map((t) => t.count - pc);
+          for (let k = 0; k < pc; k++) {
+            pageTags.push(tags);
+            pageTagPos.push([...counters]);
+            counters = counters.map((c) => c + 1);
+          }
+        }
+        return { sorted, pageTags, pageTagPos };
+      }
+
+      // ── Sample outline points from canvas-rendered text ───────────────────────
+      function computeTypoPoints() {
+        const allPts = [];
+        const SCALE = 5;
+        const FONT = `bold %Ppx FreeSansBold, 'Arial Black', Impact, sans-serif`;
+        const SPACING = 3.5; // ~geomerative segment length
+
+        for (const { text, x: ox, y: oy, size } of TITLE) {
+          const oc = document.createElement("canvas");
+          oc.width = 700 * SCALE;
+          oc.height = (size + 20) * SCALE;
+          const ctx = oc.getContext("2d");
+          ctx.fillStyle = "#fff";
+          ctx.font = FONT.replace("%P", size * SCALE);
+          ctx.textBaseline = "top";
+          ctx.fillText(text, 0, 4 * SCALE);
+
+          const { width: W, height: H } = oc;
+          const px = ctx.getImageData(0, 0, W, H).data;
+          const step = Math.max(1, Math.round(SPACING * SCALE));
+
+          for (let y = 0; y < H; y += step) {
+            for (let x = 0; x < W; x += step) {
+              if (px[(y * W + x) * 4] < 200) continue;
+              let edge = false;
+              for (const [dx, dy] of [
+                [-step, 0],
+                [step, 0],
+                [0, -step],
+                [0, step],
+              ]) {
+                const nx = x + dx,
+                  ny = y + dy;
+                if (
+                  nx < 0 ||
+                  ny < 0 ||
+                  nx >= W ||
+                  ny >= H ||
+                  px[(ny * W + nx) * 4] < 100
+                ) {
+                  edge = true;
+                  break;
+                }
+              }
+              if (edge) allPts.push({ x: x / SCALE + ox, y: y / SCALE + oy });
+            }
+          }
+        }
+        return allPts;
+      }
+
+      // ── Color helpers ─────────────────────────────────────────────────────────
+      function luminance(r, g, b) {
+        return 0.299 * r + 0.587 * g + 0.114 * b;
+      }
+
+      function rgbToHsb(r, g, b) {
+        r /= 255;
+        g /= 255;
+        b /= 255;
+        const max = Math.max(r, g, b),
+          d = max - Math.min(r, g, b);
+        let h = 0;
+        const s = max ? d / max : 0,
+          v = max;
+        if (d) {
+          if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+          else if (max === g) h = ((b - r) / d + 2) / 6;
+          else h = ((r - g) / d + 4) / 6;
+        }
+        return [h, s, v];
+      }
+
+      function sampleStripColors(img, stripIdx) {
+        const iw = img.width,
+          ih = img.height;
+        const sy = Math.floor((stripIdx * ih) / STRIPS);
+        const seh = Math.max(1, Math.floor(ih / STRIPS));
+        const total = iw * seh;
+        const count = RESOLUTION * DETAIL; // 800
+        const step = total / count;
+        const cols = [];
+        for (let i = 0; i < count; i++) {
+          const pi = Math.min(Math.floor(i * step), total - 1);
+          const px = pi % iw;
+          const py = Math.min(sy + Math.floor(pi / iw), ih - 1);
+          const idx = (py * iw + px) * 4;
+          cols.push([
+            img.pixels[idx],
+            img.pixels[idx + 1],
+            img.pixels[idx + 2],
+          ]);
+        }
+        cols.sort((a, b) => luminance(...a) - luminance(...b));
+        return cols;
+      }
+
+      // ── Ribbon bezier path ────────────────────────────────────────────────────
+      function buildRibbonPath(imgIdx, stripIdx, tagData, typoPts) {
+        const { sorted, pageTags, pageTagPos } = tagData;
+
+        // typo endpoint — distribute across all outline points
+        const pi0 = (imgIdx * STRIPS + stripIdx) / (IMG_COUNT * STRIPS);
+        const pi = Math.pow(pi0, DIST_POW);
+        let pIdx = Math.round(pi * (typoPts.length - 2)) + 1;
+        pIdx = (pIdx % (typoPts.length - 1)) + 1;
+        pIdx = Math.max(1, Math.min(typoPts.length - 1, pIdx));
+
+        const typoX = typoPts[pIdx].x,
+          typoY = typoPts[pIdx].y;
+
+        // tag left endpoint
+        const tagIdx = stripIdx % pageTags[imgIdx].length;
+        const tag = pageTags[imgIdx][tagIdx];
+        const rawPos = pageTagPos[imgIdx][tagIdx] / tag.count;
+        const posNorm =
+          (tag.position + rawPos * tag.ratio) * (1 - GAP_RATIO) +
+          tag.orderNum * (1 / sorted.length) * GAP_RATIO;
+        const tagX = -TAG_W;
+        const tagY = posNorm * CH * BLOCK_F + BLOCK_Y;
+        const midX = 0;
+        const midY =
+          (((imgIdx + stripIdx / STRIPS) * CH) / IMG_COUNT) * BLOCK_F + BLOCK_Y;
+
+        // 40 bezier control points, then reverse (nodes[0] = typo end)
+        const pts = [];
+        for (let p = 0; p < RESOLUTION; p++) {
+          const t = p / (RESOLUTION - 1);
+          let px, py;
+          if (t <= 0.5) {
+            const tt = t / 0.5;
+            px = bpt(tagX, tagX + TAG_W * 0.75, midX - TAG_W * 0.75, midX, tt);
+            py = bpt(tagY, tagY, midY, midY, tt);
+          } else {
+            const tt = (t - 0.5) / 0.5;
+            const offx = -(typoX - PERSP_CX),
+              offy = -(typoY - PERSP_CY);
+            px = bpt(midX, midX + 200, typoX + offx, typoX, tt);
+            py = bpt(midY, midY, typoY + offy, typoY, tt);
+          }
+          pts.push({ x: px, y: py });
+        }
+        pts.reverse();
+        return pts;
+      }
+
+      function bpt(a, b, c, d, t) {
+        const u = 1 - t;
+        return (
+          u * u * u * a + 3 * u * u * t * b + 3 * u * t * t * c + t * t * t * d
+        );
+      }
+
+      // ── Ribbon drawing — Catmull-Rom quad strips ──────────────────────────────
+      function drawRibbon(p, nodes, colors) {
+        const count = nodes.length;
+        const len = colors.length;
+        const half = len / 2;
+
+        let oldX = nodes[0].x,
+          oldY = nodes[0].y;
+        let ox1 = nodes[0].x,
+          oy1 = nodes[0].y - 0.5;
+        let ox2 = nodes[0].x,
+          oy2 = nodes[0].y + 0.5;
+
+        for (let j = 0; j < count - 1; j++) {
+          const c1 = Math.max(j - 1, 0);
+          const a2 = Math.min(j + 1, count - 1);
+          const c2 = Math.min(j + 2, count - 1);
+
+          for (let i = 0; i < DETAIL; i++) {
+            const t_all = (j * DETAIL + i) / (count * DETAIL);
+            const t = i / DETAIL;
+
+            const posX = p.curvePoint(
+              nodes[c1].x,
+              nodes[j].x,
+              nodes[a2].x,
+              nodes[c2].x,
+              t,
+            );
+            const posY = p.curvePoint(
+              nodes[c1].y,
+              nodes[j].y,
+              nodes[a2].y,
+              nodes[c2].y,
+              t,
+            );
+
+            // direction = 0: "back and forth" — opaque at both ends, transparent in middle
+            let ci = len - (j * DETAIL + i) - 1;
+            ci =
+              ci >= half
+                ? Math.round(((len - 1) * (ci - half)) / (len - 1 - half))
+                : Math.round((len - 1) * (1 - ci / half));
+            ci = Math.max(0, Math.min(len - 1, ci));
+
+            const [r, g, b] = colors[ci];
+            const [h, s, v] = rgbToHsb(r, g, b);
+            const alpha =
+              Math.min(Math.sqrt(s * s + (1 - v) * (1 - v)), 1) * 255;
+            p.fill(h * 360, s, v, alpha);
+
+            // perpendicular normal, tapered width
+            const dx = posX - oldX,
+              dy = posY - oldY;
+            const nl = Math.sqrt(dx * dx + dy * dy) || 1;
+            const f = (1.5 - t_all) * 0.5; // map(t_all, 0,1, 1.5,0.5) * qf/2
+            const nx = (-dy / nl) * f,
+              ny = (dx / nl) * f;
+
+            if (j === 0 && i === 0) {
+              ox1 = nodes[0].x - nx;
+              oy1 = nodes[0].y - ny;
+              ox2 = nodes[0].x + nx;
+              oy2 = nodes[0].y + ny;
+            }
+
+            // individual quad — fill is set per call, no beginShape issues
+            p.quad(
+              ox1,
+              oy1,
+              posX - nx,
+              posY - ny,
+              posX + nx,
+              posY + ny,
+              ox2,
+              oy2,
+            );
+
+            oldX = posX;
+            oldY = posY;
+            ox1 = posX - nx;
+            oy1 = posY - ny;
+            ox2 = posX + nx;
+            oy2 = posY + ny;
+          }
+        }
+      }
+
+      // ── White title overlay ───────────────────────────────────────────────────
+      function drawTitleOverlay(p, font) {
+        p.colorMode(p.RGB, 255);
+        p.fill(255);
+        p.noStroke();
+        p.textFont(font);
+        for (const { text, x, y, size } of TITLE) {
+          p.textSize(size);
+          p.text(text, x, y + size); // y + size: Processing text() baseline = top + ascent
+        }
+        p.colorMode(p.HSB, 360, 1, 1, 255);
+      }
+
+      // ── Start / Stop ──────────────────────────────────────────────────────────
+      async function startSketch() {
+        if (displayP5) {
+          displayP5.remove();
+          displayP5 = null;
+        }
+        running = true;
+        syncUI();
+
+        // Fetch XML and wait for font before constructing the p5 sketch
+        const [tagData] = await Promise.all([
+          fetchTagData(),
+          document.fonts.load("bold 110px FreeSansBold"),
+        ]);
+        const typoPts = computeTypoPoints();
+
+        placeholder.style.display = "none";
+        canvasWrap.classList.add("active");
+
+        displayP5 = new p5((p) => {
+          const imgs = [];
+          let font,
+            ribbonPaths = [],
+            ribbonColors = [],
+            drawIdx = 0,
+            ready = false;
+
+          p.preload = () => {
+            font = p.loadFont("/implemented/Cover/data/FreeSansBold.ttf");
+            for (let i = 1; i <= IMG_COUNT; i++)
+              imgs.push(
+                p.loadImage(
+                  `/implemented/Cover/data/images/img_${String(i).padStart(3, "0")}.png`,
+                ),
+              );
+          };
+
+          p.setup = () => {
+            p.createCanvas(CW, CH);
+            p.background(255);
+            p.noStroke();
+            p.colorMode(p.HSB, 360, 1, 1, 255);
+            p.frameRate(30);
+
+            // Pixel data + ribbon precomputation
+            for (const img of imgs) img.loadPixels();
+
+            const raw = [];
+            for (let i = 0; i < IMG_COUNT; i++) {
+              for (let s = 0; s < STRIPS; s++) {
+                const path = buildRibbonPath(i, s, tagData, typoPts);
+                const colors = sampleStripColors(imgs[i], s);
+                // sort key: distance from typo-end node to (620, 630) — mirrors original
+                const dx = path[0].x - 620,
+                  dy = (path[0].y - 630) * 5;
+                raw.push({ path, colors, dist: Math.sqrt(dx * dx + dy * dy) });
+              }
+            }
+            raw.sort((a, b) => a.dist - b.dist);
+            ribbonPaths = raw.map((r) => r.path);
+            ribbonColors = raw.map((r) => r.colors);
+            ready = true;
+          };
+
+          p.draw = () => {
+            if (!ready) return;
+            p.push();
+            p.translate(BLOCK_X, 0);
+
+            const BATCH = 40;
+            for (
+              let b = 0;
+              b < BATCH && drawIdx < ribbonPaths.length;
+              b++, drawIdx++
+            )
+              drawRibbon(p, ribbonPaths[drawIdx], ribbonColors[drawIdx]);
+
+            if (drawIdx >= ribbonPaths.length) {
+              drawTitleOverlay(p, font);
+              p.noLoop();
+              hint.textContent = "Done";
+            }
+            p.pop();
+          };
+        }, canvasWrap);
+      }
+
+      function stopSketch() {
+        if (displayP5) {
+          const cvs = canvasWrap.querySelector("canvas");
+          if (cvs) {
+            placeholder.src = cvs.toDataURL();
+          }
+          displayP5.remove();
+          displayP5 = null;
+        }
+        canvasWrap.classList.remove("active");
+        placeholder.style.display = "";
+        running = false;
+        hint.textContent = "Rendering… ribbons appear progressively";
+        syncUI();
+      }
+
+      runBtn.addEventListener("click", () =>
+        running ? stopSketch() : startSketch(),
+      );
+      syncUI();
+    </script>
+  </body>
+</html>

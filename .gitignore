@@ -1,0 +1,14 @@
+# Sketch source folders (thumbnails load from original repo via GitHub raw URLs)
+01_P/
+02_M/
+03_A/
+
+# Claude Code project config
+.claude/
+
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc

@@ -1,0 +1,572 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generative Design — Run</title>
+    <script src="https://cdn.jsdelivr.net/npm/p5@1.9.4/lib/p5.min.js"></script>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg: #111;
+        --sidebar-bg: #0c0c0c;
+        --border: #2a2a2a;
+        --sidebar-w: 280px;
+      }
+
+      html,
+      body {
+        height: 100%;
+        background: var(--bg);
+        color: #fff;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
+          sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+
+      body {
+        display: flex;
+        overflow: hidden;
+      }
+
+      /* ── Sidebar ─────────────────────────────── */
+      #sidebar {
+        width: var(--sidebar-w);
+        min-width: var(--sidebar-w);
+        background: var(--sidebar-bg);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        scrollbar-width: none;
+      }
+      #sidebar::-webkit-scrollbar {
+        display: none;
+      }
+
+      .sidebar-header {
+        padding: 28px 20px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .sidebar-header h1 {
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .back-link {
+        display: inline-block;
+        margin-top: 10px;
+        font-size: 16px;
+        color: #fff;
+        opacity: 0.45;
+        text-decoration: none;
+        transition: opacity 0.15s;
+      }
+      .back-link:hover {
+        opacity: 1;
+      }
+
+      .sidebar-section {
+        padding: 20px 0 16px;
+      }
+
+      .sidebar-label {
+        padding: 0 20px 12px;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .sketch-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 20px;
+        gap: 12px;
+      }
+
+      .sketch-name {
+        font-size: 16px;
+        flex: 1;
+        min-width: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* ── Run / Stop button ───────────────────── */
+      .run-btn {
+        flex-shrink: 0;
+        min-width: 68px;
+        padding: 5px 14px;
+        font-size: 16px;
+        font-family: inherit;
+        font-weight: 500;
+        cursor: pointer;
+        border-radius: 3px;
+        border: 1px solid #fff;
+        background: #fff;
+        color: #111;
+        text-align: center;
+        transition:
+          background 0.15s,
+          color 0.15s,
+          border-color 0.15s;
+      }
+
+      .run-btn:hover {
+        background: #ddd;
+        border-color: #ddd;
+      }
+
+      .run-btn.running {
+        background: transparent;
+        color: #ff5555;
+        border-color: #ff5555;
+      }
+
+      .run-btn.running:hover {
+        background: rgba(255, 85, 85, 0.1);
+      }
+
+      /* ── Main ────────────────────────────────── */
+      #main {
+        flex: 1;
+        overflow: auto;
+        padding: 40px 44px 60px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 20px;
+      }
+
+      /* ── Canvas area ─────────────────────────── */
+      #canvas-area {
+        position: relative;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        overflow: hidden;
+        line-height: 0;
+      }
+
+      #placeholder {
+        display: block;
+        width: 800px;
+        height: 800px;
+        object-fit: cover;
+        opacity: 0.65;
+      }
+
+      #canvas-wrap {
+        display: none;
+      }
+      #canvas-wrap.active {
+        display: block;
+      }
+      #canvas-wrap canvas {
+        display: block;
+      }
+
+      /* ── Toolbar ─────────────────────────────── */
+      #toolbar {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .action-btn {
+        padding: 8px 20px;
+        font-size: 16px;
+        font-family: inherit;
+        font-weight: 500;
+        cursor: pointer;
+        border-radius: 3px;
+        border: 1px solid #fff;
+        background: transparent;
+        color: #fff;
+        transition: background 0.15s;
+      }
+
+      .action-btn:hover:not(:disabled) {
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .action-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+
+      .hint {
+        font-size: 16px;
+        color: #fff;
+        opacity: 0;
+        transition: opacity 0.3s;
+      }
+
+      .hint.visible {
+        opacity: 0.4;
+      }
+    </style>
+  </head>
+  <body>
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <h1>Generative Design</h1>
+        <a class="back-link" href="/tool/index.html">← Gallery</a>
+      </div>
+      <div class="sidebar-section">
+        <div class="sidebar-label">Sketches</div>
+        <div class="sketch-row">
+          <span class="sketch-name">P_1_2_3_02</span>
+          <button class="run-btn" id="run-btn">Run</button>
+        </div>
+      </div>
+    </aside>
+
+    <main id="main">
+      <div id="canvas-area">
+        <img
+          id="placeholder"
+          src="/implemented/P_1_2_3_02/P_1_2_3_02.png"
+          alt="P_1_2_3_02"
+        />
+        <div id="canvas-wrap"></div>
+      </div>
+      <div id="toolbar">
+        <button class="action-btn" id="export-btn" disabled>Export SVG</button>
+        <span class="hint" id="hint">Click canvas for new composition</span>
+      </div>
+    </main>
+
+    <script>
+      // ── p5.js port of P_1_2_3_02 ─────────────────────────────────────────────
+      // Extracted as a pure draw function so the same logic runs both for display
+      // and for SVG export (same seed → identical output).
+      function drawSketch(p, seed) {
+        p.randomSeed(seed);
+
+        const colorCount = 20;
+        const hue = new Array(colorCount);
+        const sat = new Array(colorCount);
+        const bri = new Array(colorCount);
+
+        for (let i = 0; i < colorCount; i++) {
+          if (i % 2 === 0) {
+            hue[i] = p.random(0, 360);
+            sat[i] = 100;
+            bri[i] = p.random(0, 100);
+          } else {
+            hue[i] = 195;
+            sat[i] = p.random(0, 100);
+            bri[i] = 100;
+          }
+        }
+
+        let counter = 0;
+        let rowCount = p.int(p.random(5, 40));
+        const rowH = p.height / rowCount;
+
+        for (let i = 0; i < rowCount; i++) {
+          let partCount = i + 1;
+          const parts = [];
+
+          for (let ii = 0; ii < partCount; ii++) {
+            if (p.random(1.0) < 0.075) {
+              const frags = p.int(p.random(2, 20));
+              partCount += frags;
+              for (let f = 0; f < frags; f++) parts.push(p.random(2));
+            } else {
+              parts.push(p.random(2, 20));
+            }
+          }
+
+          let total = 0;
+          for (let ii = 0; ii < parts.length; ii++) total += parts[ii];
+
+          let acc = 0;
+          for (let ii = 0; ii < parts.length; ii++) {
+            const idx = counter % colorCount;
+            p.fill(hue[idx], sat[idx], bri[idx]);
+            acc += parts[ii];
+            p.rect(
+              p.map(acc, 0, total, 0, p.width),
+              rowH * i,
+              -p.map(parts[ii], 0, total, 0, p.width),
+              rowH,
+            );
+            counter++;
+          }
+        }
+      }
+
+      // ── State ─────────────────────────────────────────────────────────────────
+      let displayP5 = null;
+      let currentSeed = null;
+      let running = false;
+
+      const runBtn = document.getElementById("run-btn");
+      const exportBtn = document.getElementById("export-btn");
+      const canvasWrap = document.getElementById("canvas-wrap");
+      const placeholder = document.getElementById("placeholder");
+      const hint = document.getElementById("hint");
+
+      function syncUI() {
+        runBtn.textContent = running ? "Stop" : "Run";
+        runBtn.className = running ? "run-btn running" : "run-btn";
+        exportBtn.disabled = currentSeed === null;
+        hint.className = running ? "hint visible" : "hint";
+      }
+
+      // ── Start ──────────────────────────────────────────────────────────────────
+      function startSketch() {
+        if (displayP5) {
+          displayP5.remove();
+          displayP5 = null;
+        }
+
+        currentSeed = Math.floor(Math.random() * 99999) + 1;
+
+        placeholder.style.display = "none";
+        canvasWrap.classList.add("active");
+
+        displayP5 = new p5(function (p) {
+          p.setup = function () {
+            p.createCanvas(800, 800);
+            p.colorMode(p.HSB, 360, 100, 100, 100);
+            p.noStroke();
+          };
+
+          p.draw = function () {
+            drawSketch(p, currentSeed);
+            p.noLoop();
+          };
+
+          // Mouse click on canvas → new composition
+          p.mouseReleased = function () {
+            currentSeed = Math.floor(Math.random() * 99999) + 1;
+            exportBtn.disabled = false;
+            p.loop();
+          };
+        }, canvasWrap);
+
+        running = true;
+        syncUI();
+      }
+
+      // ── Stop ───────────────────────────────────────────────────────────────────
+      function stopSketch() {
+        if (displayP5) {
+          // Freeze last frame into placeholder before removing p5
+          const cvs = canvasWrap.querySelector("canvas");
+          if (cvs) placeholder.src = cvs.toDataURL();
+          displayP5.remove();
+          displayP5 = null;
+        }
+        canvasWrap.classList.remove("active");
+        placeholder.style.display = "";
+        running = false;
+        syncUI();
+      }
+
+      // ── SVG helpers ───────────────────────────────────────────────────────────
+
+      // Convert p5.js HSB (h:0-360, s:0-100, b:0-100) to #rrggbb hex
+      function hsbToHex(h, s, b) {
+        const H = h / 360,
+          S = s / 100,
+          B = b / 100;
+        let r, g, bl;
+        if (S === 0) {
+          r = g = bl = B;
+        } else {
+          const hh = H * 6,
+            i = Math.floor(hh),
+            f = hh - i;
+          const p = B * (1 - S),
+            q = B * (1 - S * f),
+            t = B * (1 - S * (1 - f));
+          switch (i % 6) {
+            case 0:
+              r = B;
+              g = t;
+              bl = p;
+              break;
+            case 1:
+              r = q;
+              g = B;
+              bl = p;
+              break;
+            case 2:
+              r = p;
+              g = B;
+              bl = t;
+              break;
+            case 3:
+              r = p;
+              g = q;
+              bl = B;
+              break;
+            case 4:
+              r = t;
+              g = p;
+              bl = B;
+              break;
+            default:
+              r = B;
+              g = p;
+              bl = q;
+              break;
+          }
+        }
+        const hex = (v) =>
+          Math.round(v * 255)
+            .toString(16)
+            .padStart(2, "0");
+        return `#${hex(r)}${hex(g)}${hex(bl)}`;
+      }
+
+      // Run the sketch logic using p5's seeded PRNG and collect rect data
+      // instead of drawing to a canvas.
+      function collectRects(p, seed, W, H) {
+        p.randomSeed(seed);
+
+        const colorCount = 20;
+        const hue = new Array(colorCount);
+        const sat = new Array(colorCount);
+        const bri = new Array(colorCount);
+
+        for (let i = 0; i < colorCount; i++) {
+          if (i % 2 === 0) {
+            hue[i] = p.random(0, 360);
+            sat[i] = 100;
+            bri[i] = p.random(0, 100);
+          } else {
+            hue[i] = 195;
+            sat[i] = p.random(0, 100);
+            bri[i] = 100;
+          }
+        }
+
+        const rects = [];
+        let counter = 0;
+        const rowCount = p.int(p.random(5, 40));
+        const rowH = H / rowCount;
+
+        for (let i = 0; i < rowCount; i++) {
+          let partCount = i + 1;
+          const parts = [];
+
+          for (let ii = 0; ii < partCount; ii++) {
+            if (p.random(1.0) < 0.075) {
+              const frags = p.int(p.random(2, 20));
+              partCount += frags;
+              for (let f = 0; f < frags; f++) parts.push(p.random(2));
+            } else {
+              parts.push(p.random(2, 20));
+            }
+          }
+
+          let total = 0;
+          for (let ii = 0; ii < parts.length; ii++) total += parts[ii];
+
+          let acc = 0;
+          for (let ii = 0; ii < parts.length; ii++) {
+            const idx = counter % colorCount;
+            acc += parts[ii];
+            // Original: rect(rightEdge, y, -width, h) — convert to SVG x/w
+            const rectW = (parts[ii] / total) * W;
+            const rectX = (acc / total) * W - rectW;
+            rects.push({
+              x: rectX,
+              y: rowH * i,
+              w: rectW,
+              h: rowH,
+              fill: hsbToHex(hue[idx], sat[idx], bri[idx]),
+            });
+            counter++;
+          }
+        }
+        return rects;
+      }
+
+      // Build a clean, Illustrator-compatible SVG string from rect data
+      function buildSVG(rects, W, H) {
+        const lines = [
+          `<?xml version="1.0" encoding="UTF-8" standalone="no"?>`,
+          `<svg xmlns="http://www.w3.org/2000/svg" version="1.1"`,
+          `     width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">`,
+        ];
+        for (const r of rects) {
+          lines.push(
+            `  <rect x="${r.x.toFixed(4)}" y="${r.y.toFixed(4)}" ` +
+              `width="${r.w.toFixed(4)}" height="${r.h.toFixed(4)}" fill="${r.fill}"/>`,
+          );
+        }
+        lines.push("</svg>");
+        return lines.join("\n");
+      }
+
+      // ── Export SVG ────────────────────────────────────────────────────────────
+      function exportSVG() {
+        if (currentSeed === null) return;
+
+        const seed = currentSeed;
+        exportBtn.disabled = true;
+        exportBtn.textContent = "Exporting…";
+
+        // Spin up a 1×1 p5 instance purely for its seeded PRNG
+        const tmpEl = document.createElement("div");
+        tmpEl.style.cssText = "position:fixed;left:-9999px;top:0;";
+        document.body.appendChild(tmpEl);
+
+        let genP5 = new p5(function (p) {
+          p.setup = function () {
+            p.createCanvas(1, 1);
+            p.noLoop();
+
+            const rects = collectRects(p, seed, 800, 800);
+            const svg = buildSVG(rects, 800, 800);
+
+            const blob = new Blob([svg], {
+              type: "image/svg+xml;charset=utf-8",
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "P_1_2_3_02.svg";
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+
+            genP5.remove();
+            tmpEl.remove();
+            exportBtn.textContent = "Export SVG";
+            exportBtn.disabled = currentSeed === null;
+          };
+        }, tmpEl);
+      }
+
+      // ── Events ────────────────────────────────────────────────────────────────
+      runBtn.addEventListener("click", () =>
+        running ? stopSketch() : startSketch(),
+      );
+      exportBtn.addEventListener("click", exportSVG);
+
+      syncUI();
+    </script>
+  </body>
+</html>

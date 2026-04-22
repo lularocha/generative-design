@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generative Design</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --bg: #111;
+        --sidebar-bg: #0c0c0c;
+        --card-bg: #181818;
+        --border: #2a2a2a;
+        --hover-border: #555;
+        --selected-border: #fff;
+        --sidebar-w: 280px;
+      }
+
+      html,
+      body {
+        height: 100%;
+        background: var(--bg);
+        color: #fff;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
+          sans-serif;
+        font-size: 16px;
+        line-height: 1.5;
+      }
+
+      body {
+        display: flex;
+        overflow: hidden;
+      }
+
+      /* ── Sidebar ─────────────────────────────── */
+      #sidebar {
+        width: var(--sidebar-w);
+        min-width: var(--sidebar-w);
+        background: var(--sidebar-bg);
+        border-right: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+        scrollbar-width: none;
+      }
+      #sidebar::-webkit-scrollbar {
+        display: none;
+      }
+
+      .sidebar-header {
+        padding: 28px 20px 20px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .sidebar-header h1 {
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #fff;
+      }
+
+      .sidebar-header .meta {
+        margin-top: 6px;
+        font-size: 16px;
+        color: #fff;
+      }
+
+      /* ── Nav sections ────────────────────────── */
+      .sidebar-section {
+        padding: 20px 0 8px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .sidebar-label {
+        padding: 0 20px 10px;
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #fff;
+      }
+
+      .nav-btn {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 8px 20px;
+        background: none;
+        border: none;
+        text-align: left;
+        color: #fff;
+        font-size: 16px;
+        font-family: inherit;
+        cursor: pointer;
+        transition:
+          color 0.1s,
+          background 0.1s;
+        border-left: 2px solid transparent;
+      }
+
+      .nav-btn:hover {
+        background: rgba(255, 255, 255, 0.05);
+      }
+
+      .nav-btn.active {
+        border-left-color: #fff;
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      a.impl-link {
+        text-decoration: none;
+      }
+
+      .nav-btn .count {
+        font-size: 16px;
+        color: #fff;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ── Selected list ───────────────────────── */
+      #selected-panel {
+        padding: 20px 0 24px;
+        flex: 1;
+      }
+
+      #selected-empty {
+        padding: 4px 20px;
+        font-size: 16px;
+        color: #fff;
+        opacity: 0.4;
+      }
+
+      .selected-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 20px;
+        font-size: 16px;
+        color: #fff;
+      }
+
+      .selected-item .remove-btn {
+        background: none;
+        border: none;
+        color: #fff;
+        font-size: 16px;
+        cursor: pointer;
+        opacity: 0.5;
+        padding: 0 0 0 8px;
+        line-height: 1;
+        transition: opacity 0.1s;
+        flex-shrink: 0;
+      }
+
+      .selected-item .remove-btn:hover {
+        opacity: 1;
+      }
+
+      /* ── Main ────────────────────────────────── */
+      #main {
+        flex: 1;
+        overflow-y: auto;
+        padding: 36px 32px 60px;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border) transparent;
+      }
+      #main::-webkit-scrollbar {
+        width: 6px;
+      }
+      #main::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      #main::-webkit-scrollbar-thumb {
+        background: var(--border);
+        border-radius: 3px;
+      }
+
+      /* ── Section block ───────────────────────── */
+      .section-block {
+        margin-bottom: 52px;
+        scroll-margin-top: 36px;
+      }
+
+      .section-heading {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 18px;
+        padding-bottom: 10px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .section-heading h2 {
+        font-size: 16px;
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #fff;
+      }
+
+      .section-heading .section-count {
+        font-size: 16px;
+        color: #fff;
+        opacity: 0.5;
+      }
+
+      /* ── Grid ────────────────────────────────── */
+      .sketch-grid {
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 10px;
+      }
+
+      .sketch-card {
+        cursor: pointer;
+        border-radius: 3px;
+        overflow: hidden;
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        transition:
+          border-color 0.15s,
+          transform 0.15s,
+          box-shadow 0.15s;
+      }
+
+      .sketch-card:hover {
+        border-color: var(--hover-border);
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+      }
+
+      .sketch-card.selected {
+        border-color: var(--selected-border);
+        box-shadow: 0 0 0 1px var(--selected-border);
+      }
+
+      .sketch-card.selected:hover {
+        border-color: var(--selected-border);
+        box-shadow:
+          0 0 0 1px var(--selected-border),
+          0 6px 20px rgba(0, 0, 0, 0.5);
+      }
+
+      .sketch-thumb-wrap {
+        position: relative;
+      }
+
+      .sketch-thumb {
+        width: 100%;
+        aspect-ratio: 1;
+        object-fit: cover;
+        display: block;
+        background: #1c1c1c;
+      }
+
+      .sketch-thumb.no-image {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-size: 18px;
+      }
+
+      /* checkmark badge on selected cards */
+      .selected-badge {
+        display: none;
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 20px;
+        height: 20px;
+        background: #fff;
+        border-radius: 50%;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .selected-badge svg {
+        width: 11px;
+        height: 11px;
+        stroke: #111;
+        stroke-width: 2.5;
+        fill: none;
+      }
+
+      .sketch-card.selected .selected-badge {
+        display: flex;
+      }
+
+      .sketch-label {
+        padding: 6px 8px 7px;
+        font-size: 16px;
+        color: #fff;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      /* ── Loading ─────────────────────────────── */
+      #loading {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--bg);
+        color: #fff;
+        font-size: 16px;
+        letter-spacing: 0.05em;
+        z-index: 100;
+        transition: opacity 0.3s;
+      }
+
+      #loading.hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      /* ── Lightbox ────────────────────────────── */
+      #lightbox {
+        display: none;
+        position: fixed;
+        inset: 0;
+        z-index: 200;
+        background: rgba(0, 0, 0, 0.88);
+        align-items: center;
+        justify-content: center;
+        cursor: zoom-out;
+      }
+
+      #lightbox.open {
+        display: flex;
+      }
+
+      #lightbox-inner {
+        position: relative;
+        max-width: min(90vw, 900px);
+        max-height: 90vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 14px;
+        cursor: default;
+      }
+
+      #lightbox-img {
+        max-width: 100%;
+        max-height: calc(90vh - 60px);
+        object-fit: contain;
+        border-radius: 4px;
+        box-shadow: 0 24px 80px rgba(0, 0, 0, 0.7);
+        display: block;
+      }
+
+      #lightbox-caption {
+        font-size: 13px;
+        letter-spacing: 0.06em;
+        color: rgba(255, 255, 255, 0.55);
+        text-transform: uppercase;
+      }
+
+      #lightbox-close {
+        position: absolute;
+        top: -12px;
+        right: -12px;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.12);
+        border: none;
+        color: #fff;
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: background 0.15s;
+      }
+
+      #lightbox-close:hover {
+        background: rgba(255, 255, 255, 0.25);
+      }
+
+      .sketch-thumb-wrap {
+        cursor: zoom-in;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loading">Loading sketches…</div>
+
+    <div id="lightbox">
+      <div id="lightbox-inner">
+        <button id="lightbox-close" aria-label="Close">×</button>
+        <img id="lightbox-img" src="" alt="" />
+        <div id="lightbox-caption"></div>
+      </div>
+    </div>
+
+    <aside id="sidebar">
+      <div class="sidebar-header">
+        <h1>Generative Design</h1>
+        <div class="meta" id="meta">—</div>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Implemented</div>
+        <nav>
+          <a class="nav-btn impl-link" href="/tool/P_1_2_3_02.html"
+            ><span>P_1_2_3_02</span></a
+          >
+          <a class="nav-btn impl-link" href="/tool/cover.html"
+            ><span>Cover</span></a
+          >
+        </nav>
+      </div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">Sections</div>
+        <nav id="nav"></nav>
+      </div>
+
+      <div id="selected-panel">
+        <div class="sidebar-label">
+          Selected <span id="selected-count"></span>
+        </div>
+        <div id="selected-list">
+          <div id="selected-empty">No sketches selected</div>
+        </div>
+      </div>
+    </aside>
+
+    <main id="main">
+      <div id="gallery"></div>
+    </main>
+
+    <script>
+      const main = document.getElementById("main");
+      const gallery = document.getElementById("gallery");
+      const nav = document.getElementById("nav");
+      const meta = document.getElementById("meta");
+      const loading = document.getElementById("loading");
+      const selList = document.getElementById("selected-list");
+      const selCount = document.getElementById("selected-count");
+      const selEmpty = document.getElementById("selected-empty");
+
+      const lightbox = document.getElementById("lightbox");
+      const lightboxImg = document.getElementById("lightbox-img");
+      const lightboxCaption = document.getElementById("lightbox-caption");
+
+      function openLightbox(src, name) {
+        lightboxImg.src = src;
+        lightboxImg.alt = name;
+        lightboxCaption.textContent = name;
+        lightbox.classList.add("open");
+        document.body.style.overflow = "hidden";
+      }
+
+      function closeLightbox() {
+        lightbox.classList.remove("open");
+        document.body.style.overflow = "";
+        lightboxImg.src = "";
+      }
+
+      lightbox.addEventListener("click", closeLightbox);
+      document
+        .getElementById("lightbox-inner")
+        .addEventListener("click", (e) => e.stopPropagation());
+      document
+        .getElementById("lightbox-close")
+        .addEventListener("click", closeLightbox);
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") closeLightbox();
+      });
+
+      const selected = new Map(); // name → card element
+
+      function updateSelectedPanel() {
+        selCount.textContent = selected.size ? `(${selected.size})` : "";
+        selEmpty.style.display = selected.size ? "none" : "block";
+      }
+
+      function addToSelected(name, card) {
+        if (selected.has(name)) return;
+        selected.set(name, card);
+        card.classList.add("selected");
+
+        const item = document.createElement("div");
+        item.className = "selected-item";
+        item.dataset.name = name;
+        item.innerHTML = `<span>${name}</span><button class="remove-btn" title="Remove">×</button>`;
+        item
+          .querySelector(".remove-btn")
+          .addEventListener("click", () => removeFromSelected(name));
+        selList.appendChild(item);
+
+        updateSelectedPanel();
+      }
+
+      function removeFromSelected(name) {
+        const card = selected.get(name);
+        if (card) card.classList.remove("selected");
+        selected.delete(name);
+
+        const item = selList.querySelector(`[data-name="${name}"]`);
+        if (item) item.remove();
+
+        updateSelectedPanel();
+      }
+
+      function toggleSelected(name, card) {
+        selected.has(name)
+          ? removeFromSelected(name)
+          : addToSelected(name, card);
+      }
+
+      // Highlight active section as user scrolls
+      const observer = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((entry) => {
+            if (entry.isIntersecting) {
+              document
+                .querySelectorAll(".nav-btn")
+                .forEach((b) => b.classList.remove("active"));
+              const btn = document.querySelector(
+                `.nav-btn[data-section="${entry.target.dataset.section}"]`,
+              );
+              if (btn) btn.classList.add("active");
+            }
+          });
+        },
+        { root: main, threshold: 0.15 },
+      );
+
+      async function init() {
+        const res = await fetch("/api/sketches");
+        const sections = await res.json();
+
+        const total = sections.reduce((sum, s) => sum + s.sketches.length, 0);
+        meta.textContent = `${total} sketches · ${sections.length} sections`;
+
+        sections.forEach((section) => {
+          // Sidebar nav button
+          const btn = document.createElement("button");
+          btn.className = "nav-btn";
+          btn.dataset.section = section.name;
+          btn.innerHTML = `<span>${section.name}</span><span class="count">${section.sketches.length}</span>`;
+          btn.addEventListener("click", () => {
+            document
+              .getElementById(`section-${section.name}`)
+              .scrollIntoView({ behavior: "smooth", block: "start" });
+          });
+          nav.appendChild(btn);
+
+          // Gallery section
+          const block = document.createElement("div");
+          block.className = "section-block";
+          block.id = `section-${section.name}`;
+          block.dataset.section = section.name;
+
+          const heading = document.createElement("div");
+          heading.className = "section-heading";
+          heading.innerHTML = `<h2>${section.name}</h2><span class="section-count">${section.sketches.length} sketches</span>`;
+          block.appendChild(heading);
+
+          const grid = document.createElement("div");
+          grid.className = "sketch-grid";
+
+          section.sketches.forEach((sketch) => {
+            const card = document.createElement("div");
+            card.className = "sketch-card";
+
+            const wrap = document.createElement("div");
+            wrap.className = "sketch-thumb-wrap";
+
+            if (sketch.thumbnail) {
+              const img = document.createElement("img");
+              img.className = "sketch-thumb";
+              img.src = sketch.thumbnail.startsWith("http")
+                ? sketch.thumbnail
+                : `/${sketch.thumbnail}`;
+              img.alt = sketch.name;
+              img.loading = "lazy";
+              img.onerror = () => img.replaceWith(noImagePlaceholder());
+              wrap.appendChild(img);
+            } else {
+              wrap.appendChild(noImagePlaceholder());
+            }
+
+            const badge = document.createElement("div");
+            badge.className = "selected-badge";
+            badge.innerHTML = `<svg viewBox="0 0 12 12"><polyline points="1.5,6 5,9.5 10.5,2.5"/></svg>`;
+            wrap.appendChild(badge);
+
+            card.appendChild(wrap);
+
+            const label = document.createElement("div");
+            label.className = "sketch-label";
+            label.textContent = sketch.name;
+            label.title = sketch.name;
+            card.appendChild(label);
+
+            wrap.addEventListener("click", (e) => {
+              e.stopPropagation();
+              const src = sketch.thumbnail
+                ? sketch.thumbnail.startsWith("http")
+                  ? sketch.thumbnail
+                  : `/${sketch.thumbnail}`
+                : null;
+              if (src) openLightbox(src, sketch.name);
+            });
+
+            card.addEventListener("click", () =>
+              toggleSelected(sketch.name, card),
+            );
+
+            grid.appendChild(card);
+          });
+
+          block.appendChild(grid);
+          gallery.appendChild(block);
+          observer.observe(block);
+        });
+
+        loading.classList.add("hidden");
+
+        const firstBtn = nav.querySelector(".nav-btn");
+        if (firstBtn) firstBtn.classList.add("active");
+      }
+
+      function noImagePlaceholder() {
+        const div = document.createElement("div");
+        div.className = "sketch-thumb no-image";
+        div.textContent = "○";
+        return div;
+      }
+
+      init().catch((err) => {
+        loading.textContent = "Failed to load — is server.py running?";
+        console.error(err);
+      });
+    </script>
+  </body>
+</html>
